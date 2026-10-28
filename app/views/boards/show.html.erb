@@ -1,0 +1,118 @@
+<% content_for :title, "#{@board.name} · Jotboard" %>
+<% content_for :body_class, "page-board" %>
+<%
+  config = {
+    slug: @board.slug,
+    name: @board.name,
+    defaultRole: @board.link_role,
+    ownerUid: @board.owner_uid,
+    pages: @pages.map(&:as_summary),
+    me: current_visitor.as_payload.merge(role: @membership.role, owner: @board.owner?(current_visitor.uid)),
+    members: @members.map(&:as_payload),
+    urls: {
+      board: board_path(@board),
+      home: root_path,
+      elements: elements_board_page_path(@board, ":id"),
+      thumbnail: thumbnail_board_page_path(@board, ":id"),
+      members: board_membership_path(@board, ":uid")
+    }
+  }
+%>
+<div class="board" data-controller="board" data-board-config-value="<%= config.to_json %>" data-role="<%= @membership.role %>">
+  <div class="stage" data-board-target="stage">
+    <canvas data-board-target="canvas"></canvas>
+    <div class="cursors" data-board-target="cursors" aria-hidden="true"></div>
+  </div>
+
+  <!-- top left: where am I -->
+  <div class="hud hud--title">
+    <%= link_to root_path, class: "icon-button", title: "All boards", data: { turbo: false } do %><%= icon :back %><% end %>
+    <div class="title-block">
+      <input class="title-block__name" value="<%= @board.name %>" maxlength="80" aria-label="Board name"
+             data-board-target="boardName" data-action="change->board#renameBoard keydown.enter->board#blurTarget" spellcheck="false">
+      <span class="title-block__page" data-board-target="pageLabel"></span>
+    </div>
+    <span class="status-chip" data-board-target="status" hidden></span>
+  </div>
+
+  <!-- top right: people and sharing -->
+  <div class="hud hud--people">
+    <div class="presence" data-board-target="presence"></div>
+    <button class="icon-button" type="button" title="People and access" data-action="board#togglePanel" data-panel="people"><%= icon :users %></button>
+    <button class="icon-button" type="button" title="Download page as JPEG" data-action="board#exportJpeg"><%= icon :download %></button>
+    <button class="button button--primary button--sm" type="button" data-action="board#share"><%= icon :share, size: 17 %>Share</button>
+  </div>
+
+  <!-- left: tools -->
+  <nav class="toolbar" data-board-target="toolbar" aria-label="Tools">
+    <% [[:select, "Select", "V"], [:hand, "Pan", "H"]].each do |tool, label, key| %>
+      <button type="button" class="tool" data-tool="<%= tool %>" data-action="board#pickTool" title="<%= label %> (<%= key %>)" aria-label="<%= label %>"><%= icon tool %></button>
+    <% end %>
+    <span class="toolbar__sep draw-only"></span>
+    <% [[:pen, "Pen", "P"], [:highlighter, "Highlighter", "M"], [:eraser, "Eraser", "E"]].each do |tool, label, key| %>
+      <button type="button" class="tool draw-only" data-tool="<%= tool %>" data-action="board#pickTool" title="<%= label %> (<%= key %>)" aria-label="<%= label %>"><%= icon tool %></button>
+    <% end %>
+    <span class="toolbar__sep draw-only"></span>
+    <% [[:line, "Line", "L"], [:arrow, "Arrow", "A"], [:rect, "Rectangle", "R"], [:ellipse, "Ellipse", "O"], [:text, "Text", "T"]].each do |tool, label, key| %>
+      <button type="button" class="tool draw-only" data-tool="<%= tool %>" data-action="board#pickTool" title="<%= label %> (<%= key %>)" aria-label="<%= label %>"><%= icon tool %></button>
+    <% end %>
+    <span class="toolbar__sep draw-only"></span>
+    <button type="button" class="tool draw-only" data-action="board#undo" title="Undo (Ctrl+Z)" aria-label="Undo" data-board-target="undo"><%= icon :undo %></button>
+    <button type="button" class="tool draw-only" data-action="board#redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" data-board-target="redo"><%= icon :redo %></button>
+  </nav>
+
+  <!-- style of the current tool or selection -->
+  <div class="stylebar draw-only" data-board-target="stylebar" hidden>
+    <div class="swatches" role="radiogroup" aria-label="Color">
+      <% %w[#111318 #E5484D #F76B15 #D99A00 #30A46C #0090FF #6E56CF #D6409F].each do |color| %>
+        <button type="button" class="swatch" style="--swatch: <%= color %>" data-color="<%= color %>" data-action="board#pickColor" aria-label="Color <%= color %>"></button>
+      <% end %>
+    </div>
+    <span class="stylebar__sep"></span>
+    <div class="sizes" aria-label="Size">
+      <% [["s", 4], ["m", 8], ["l", 14]].each do |name, dot| %>
+        <button type="button" class="size" data-size="<%= name %>" data-action="board#pickSize" aria-label="Size <%= name.upcase %>"><span style="--dot: <%= dot %>px"></span></button>
+      <% end %>
+    </div>
+    <span class="stylebar__sep" data-board-target="fillSep"></span>
+    <button type="button" class="fill-toggle" data-board-target="fill" data-action="board#toggleFill" title="Fill shape" aria-label="Fill shape"><span></span></button>
+    <span class="stylebar__sep" data-board-target="deleteSep"></span>
+    <button type="button" class="icon-button icon-button--danger" data-board-target="deleteButton" data-action="board#deleteSelection" title="Delete (Del)" aria-label="Delete selection"><%= icon :trash, size: 18 %></button>
+  </div>
+
+  <!-- bottom: pages -->
+  <div class="pagesbar" data-board-target="pagesbar">
+    <div class="pagesbar__list" data-board-target="pageList"></div>
+    <button type="button" class="page-add pages-only" data-action="board#addPage" title="Add page" aria-label="Add page"><%= icon :plus %></button>
+  </div>
+
+  <!-- bottom right: zoom -->
+  <div class="hud hud--zoom">
+    <button class="icon-button" type="button" data-action="board#zoomOut" title="Zoom out" aria-label="Zoom out"><%= icon :minus, size: 18 %></button>
+    <button class="zoom-level" type="button" data-action="board#zoomReset" title="Reset to 100%" data-board-target="zoomLabel">100%</button>
+    <button class="icon-button" type="button" data-action="board#zoomIn" title="Zoom in" aria-label="Zoom in"><%= icon :plus, size: 18 %></button>
+    <button class="icon-button" type="button" data-action="board#zoomFit" title="Fit to content (Shift+1)" aria-label="Fit to content"><%= icon :fit, size: 18 %></button>
+  </div>
+
+  <div class="view-only-chip" data-board-target="viewOnly" hidden><%= icon :lock, size: 15 %>View only</div>
+
+  <!-- people panel -->
+  <aside class="panel" data-board-target="peoplePanel" hidden>
+    <div class="panel__head">
+      <h2>People</h2>
+      <button class="icon-button" type="button" data-action="board#togglePanel" data-panel="people" aria-label="Close"><%= icon :close %></button>
+    </div>
+    <div class="panel__section manage-only">
+      <label class="field-label" for="default-role">Anyone with the link</label>
+      <select id="default-role" class="input" data-board-target="defaultRole" data-action="change->board#changeDefaultRole">
+        <option value="editor">Can draw and edit pages</option>
+        <option value="artist">Can draw</option>
+        <option value="viewer">Can view</option>
+      </select>
+    </div>
+    <ul class="member-list" data-board-target="memberList"></ul>
+    <div class="panel__foot owner-only">
+      <%= button_to board_path(@board), method: :delete, class: "button button--danger-ghost button--block", form: { data: { turbo: false, action: "submit->board#confirmDelete" } } do %><%= icon :trash, size: 17 %>Delete board<% end %>
+    </div>
+  </aside>
+</div>

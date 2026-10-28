@@ -1,0 +1,89 @@
+<% content_for :title, "Boards · Jotboard" %>
+<%= render "shared/topbar" %>
+
+<main class="library" data-controller="library">
+  <section class="library__head">
+    <div>
+      <h1 class="library__title">Boards</h1>
+      <p class="library__lead">Every board is open to everyone here. Pick one to jump in, or start a fresh canvas.</p>
+    </div>
+    <div class="library__actions">
+      <label class="search">
+        <%= icon :search, size: 18 %>
+        <input type="search" placeholder="Search boards" aria-label="Search boards" data-library-target="search" data-action="input->library#filter">
+      </label>
+      <button class="button button--primary" type="button" data-action="library#openNew"><%= icon :plus, size: 18 %>New board</button>
+    </div>
+  </section>
+
+  <% if @boards.empty? %>
+    <section class="empty">
+      <div class="empty__art" aria-hidden="true"><%= render "shared/hero_art" %></div>
+      <h2>No boards yet</h2>
+      <p>Create the first one and share the link. Anyone who opens it can draw with you.</p>
+      <button class="button button--primary" type="button" data-action="library#openNew"><%= icon :plus, size: 18 %>Create a board</button>
+    </section>
+  <% else %>
+    <ul class="board-grid" data-library-target="grid">
+      <li>
+        <button class="board-card board-card--new" type="button" data-action="library#openNew">
+          <span class="board-card__plus"><%= icon :plus, size: 28 %></span>
+          <span>New board</span>
+        </button>
+      </li>
+      <% @boards.each do |board| %>
+        <% online = BoardPresence.count(board.id) %>
+        <li data-library-target="item" data-name="<%= board.name.downcase %> <%= board.owner_name.downcase %>">
+          <%= link_to board_path(board), class: "board-card", data: { turbo: false } do %>
+            <span class="board-card__thumb">
+              <% if board.thumbnail.present? %>
+                <img src="<%= thumbnail_board_path(board, v: board.updated_at.to_i) %>" alt="" loading="lazy">
+              <% else %>
+                <span class="board-card__blank">Empty canvas</span>
+              <% end %>
+              <% if online.positive? %>
+                <span class="live-pill"><span class="live-dot"></span><%= online %> online</span>
+              <% end %>
+            </span>
+            <span class="board-card__body">
+              <span class="board-card__name"><%= board.name %></span>
+              <span class="board-card__meta">
+                <span><%= board.owner_name %></span>
+                <span><%= pluralize(@page_counts[board.id] || 1, "page") %></span>
+                <span>edited <%= time_ago(board.last_activity_at) %></span>
+              </span>
+            </span>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+    <p class="library__none" data-library-target="none" hidden>No boards match your search.</p>
+  <% end %>
+
+  <dialog class="dialog" data-library-target="dialog">
+    <%= form_with url: boards_path, scope: :board, class: "dialog__body", data: { turbo: false } do |f| %>
+      <div class="dialog__head">
+        <h2>New board</h2>
+        <button class="icon-button" type="button" data-action="library#closeNew" aria-label="Close"><%= icon :close %></button>
+      </div>
+      <label class="field-label" for="board_name">Name</label>
+      <%= f.text_field :name, class: "input", placeholder: "Sprint retro, Mood board, Product map…", maxlength: 80, required: true, autocomplete: "off" %>
+      <fieldset class="access">
+        <legend class="field-label">People who open the link</legend>
+        <% [["editor", "Can draw and edit pages"], ["artist", "Can draw"], ["viewer", "Can only view"]].each_with_index do |(value, label), i| %>
+          <label class="access__option">
+            <%= f.radio_button :link_role, value, checked: i.zero? %>
+            <span><strong><%= label %></strong>
+              <small><%= { "editor" => "Draw, erase and add or remove pages.", "artist" => "Draw and erase on existing pages.", "viewer" => "Follow along without changing anything." }[value] %></small>
+            </span>
+          </label>
+        <% end %>
+      </fieldset>
+      <p class="hint">You can change anyone's access later from the board.</p>
+      <div class="dialog__foot">
+        <button class="button" type="button" data-action="library#closeNew">Cancel</button>
+        <button class="button button--primary" type="submit">Create board</button>
+      </div>
+    <% end %>
+  </dialog>
+</main>

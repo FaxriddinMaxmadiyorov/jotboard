@@ -1,0 +1,22 @@
+<% content_for :title, "Join Jotboard" %>
+<% content_for :body_class, "page-welcome" %>
+<main class="welcome">
+  <section class="welcome__card" data-controller="nickname">
+    <div class="brand brand--large"><%= render "shared/logo" %></div>
+    <h1 class="welcome__title">Sketch it out, together.</h1>
+    <p class="welcome__lead">Open boards, draw at the same time, and see everyone's cursor live. No sign-up, just a name.</p>
+
+    <%= form_with url: session_path, method: :post, class: "welcome__form", data: { turbo: false } do %>
+      <%= hidden_field_tag :return_to, @return_to %>
+      <label class="field-label" for="nickname">Your name on the board</label>
+      <div class="name-input">
+        <span class="avatar avatar--preview" data-nickname-target="avatar" style="--avatar: #3E63DD; --size: 40px">?</span>
+        <input id="nickname" name="nickname" type="text" maxlength="32" autocomplete="nickname" autofocus required
+               placeholder="e.g. Dana" value="<%= cookies.signed[:jb_name] %>" data-action="input->nickname#preview" data-nickname-target="input">
+      </div>
+      <% if @error %><p class="form-error"><%= @error %></p><% end %>
+      <button class="button button--primary button--block" type="submit">Continue</button>
+    <% end %>
+  </section>
+  <div class="welcome__art" aria-hidden="true"><%= render "shared/hero_art" %></div>
+</main>

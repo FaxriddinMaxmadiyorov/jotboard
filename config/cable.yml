@@ -1,0 +1,10 @@
+# The board traffic stays inside one Puma process (single-mode Puma, which is what a small
+# deployment runs). To run several processes, switch production to redis and set REDIS_URL.
+development:
+  adapter: async
+
+test:
+  adapter: test
+
+production:
+  adapter: async

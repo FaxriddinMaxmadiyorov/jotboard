@@ -1,0 +1,21 @@
+# PostgreSQL everywhere. In production the connection comes from DATABASE_URL (Railway, Render
+# and Heroku-style hosts set it when a Postgres database is attached).
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 10 } %>
+  host: <%= ENV.fetch("DB_HOST") { "localhost" } %>
+  username: <%= ENV["DB_USERNAME"] %>
+  password: <%= ENV["DB_PASSWORD"] %>
+
+development:
+  <<: *default
+  database: jotboard_development
+
+test:
+  <<: *default
+  database: jotboard_test
+
+production:
+  <<: *default
+  url: <%= ENV["DATABASE_URL"] %>

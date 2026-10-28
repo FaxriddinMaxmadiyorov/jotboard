@@ -1,0 +1,24 @@
+#!/bin/bash -e
+
+# SECRET_KEY_BASE signs the cookie that holds each visitor's identity (and so board ownership).
+# It must stay the same across deploys. Without one, a temporary key is made so the app still
+# boots, but everyone becomes a new visitor after the next restart.
+if [ -z "${SECRET_KEY_BASE}" ]; then
+  echo "WARNING: SECRET_KEY_BASE is not set. Visitors will lose their identity on every restart." >&2
+  if [ ! -s tmp/secret_key_base ]; then
+    openssl rand -hex 64 > tmp/secret_key_base
+  fi
+  export SECRET_KEY_BASE="$(cat tmp/secret_key_base)"
+fi
+
+# jemalloc is in the image for amd64; skip it where the library is missing (arm64).
+if [ -n "${LD_PRELOAD}" ] && [ ! -f "${LD_PRELOAD}" ]; then
+  unset LD_PRELOAD
+fi
+
+# Create or migrate the database before the server starts.
+if [ "$1" == "./bin/rails" ] && [ "$2" == "server" ]; then
+  ./bin/rails db:prepare
+fi
+
+exec "${@}"
